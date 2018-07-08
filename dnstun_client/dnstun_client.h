@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define DNSTUN_CLIENT_VERSION 1.0
+#define DNSTUN_CLIENT_VERSION 2.0
 
 typedef enum
 {
@@ -13,19 +13,44 @@ typedef enum
     DNSTUN_CLIENT_RET_FAIL = 1, /* General fail */
 } dnstun_client_ret_t;
 
+typedef struct dnstun_client_s dnstun_client_t;
+
+/*****************************************************************************
+ * dnstun_client_init
+
+ * @name                     dnstun_client_init
+ * @param   dnstun_client    a double pointer to a struct in which a client will put a pointer to a CURL
+ * @param   stream           stream to which the result of the query is output
+ * @return  DNSTUN_CLIENT_RET_OK if success
+ *
+ * Initializes Curl
+ */
+dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *stream);
+
+/*****************************************************************************
+ * dnstun_client_deinit
+
+ * @name                     dnstun_client_deinit
+ * @param   dnstun_client    a pointer to a struct in which contains a pointer to a CURL
+ * @return  DNSTUN_CLIENT_RET_OK if success
+ *
+ * Deinitializes Curl
+ */
+dnstun_client_ret_t dnstun_client_deinit(dnstun_client_t *dnstun_client);
+
 /*****************************************************************************
  * dnstun_client_send_request
 
  * @name                     dnstun_client_send_request
+ * @param   dnstun_client    a pointer to a struct in which contains a pointer to a CURL
  * @param   url              string with the dnstun_server address, which includes such parameters of the
  *                           GET request as the request type and the host name
- * @param   stream           stream to which the result of the query is output
  * @return  DNSTUN_CLIENT_RET_OK if success
  *
  * Sends a GET reques. We assume that url has follow format: 
  * http://somehost:someport/?type=sometype&name=somename
  */
-dnstun_client_ret_t dnstun_client_send_request(char *url, FILE *stream);
+dnstun_client_ret_t dnstun_client_send_request(dnstun_client_t *dnstun_client, char *url);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

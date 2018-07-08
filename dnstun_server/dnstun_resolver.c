@@ -1,12 +1,12 @@
-#include <ares.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
+#include <syslog.h>
 #include "dnstun_resolver.h"
 
-static ares_channel channel;
+static ares_channel *channelptr;
 
 typedef struct data_for_dns_request_s
 {
@@ -40,7 +40,7 @@ static void parse_a(unsigned char *abuf, int alen, char* answer)
     status = ares_parse_a_reply(abuf, alen, NULL, info, &count);
 
     if(status != ARES_SUCCESS){
-        printf("Failed to lookup: %s\n", ares_strerror(status));
+        syslog(LOG_ERR, "Failed to lookup: %s", ares_strerror(status));
         strcpy(answer, "1\0");
         return;
     }
@@ -51,7 +51,7 @@ static void parse_a(unsigned char *abuf, int alen, char* answer)
     for(; i < count; i++)
     {
         address = inet_ntoa(info[i].ipaddr);
-        printf("%s\n", address);
+        syslog(LOG_DEBUG, "%s", address);
         sprintf(answer, "%s\n", address);
         answer += strlen(address) + 1;
     }
@@ -67,7 +67,7 @@ static void parse_txt(unsigned char *abuf, int alen, char *answer)
 
     if(!txt_out || status != ARES_SUCCESS)
     {
-        printf("Failed to lookup: %s\n", ares_strerror(status));
+        syslog(LOG_ERR, "Failed to lookup: %s", ares_strerror(status));
         strcpy(answer, "1\0");
         return;
     }
@@ -79,7 +79,7 @@ static void parse_txt(unsigned char *abuf, int alen, char *answer)
 
     for(; tmp_txt; tmp_txt = tmp_txt->next)
     {
-        printf("%s\n", tmp_txt->txt);
+        syslog(LOG_DEBUG, "%s", tmp_txt->txt);
         sprintf(answer, "%s\n", tmp_txt->txt);
         answer += strlen(tmp_txt->txt) + 1;
     }
@@ -97,7 +97,7 @@ static void parse_mx(unsigned char *abuf, int alen, char *answer)
 
     if(!mx_out || status != ARES_SUCCESS)
     {
-        printf("Failed to lookup: %s\n", ares_strerror(status));
+        syslog(LOG_ERR, "Failed to lookup: %s", ares_strerror(status));
         strcpy(answer, "1\0");
         return;
     }
@@ -109,7 +109,7 @@ static void parse_mx(unsigned char *abuf, int alen, char *answer)
 
     for(; tmp_mx; tmp_mx = tmp_mx->next)
     {
-        printf("%d %s\n", tmp_mx->priority, tmp_mx->host);
+        syslog(LOG_DEBUG, "%d %s", tmp_mx->priority, tmp_mx->host);
         sprintf(answer, "%d %s\n", tmp_mx->priority, tmp_mx->host);
         answer += strlen(answer);
     }
@@ -124,7 +124,7 @@ static void on_dns_response(void *arg, int status, int timeouts, unsigned char *
     int code = get_code_by_type(data->type);
 
     if(!abuf || status != ARES_SUCCESS){
-        printf("The %s %s request wasn't successful.\n", data->type, data->name);
+        syslog(LOG_ERR, "The %s %s request wasn't successful: %s.", data->type, data->name, ares_strerror(status));
         strcpy(data->answer, "1\0");
         return;
     }
@@ -153,14 +153,14 @@ static void wait_for_response(void)
 
         FD_ZERO(&read_fds);
         FD_ZERO(&write_fds);
-        nfds = ares_fds(channel, &read_fds, &write_fds);
+        nfds = ares_fds(*channelptr, &read_fds, &write_fds);
 
         if(!nfds)
             break;
 
-        tvp = ares_timeout(channel, NULL, &tv);
+        tvp = ares_timeout(*channelptr, NULL, &tv);
         select(nfds, &read_fds, &write_fds, NULL, tvp);
-        ares_process(channel, &read_fds, &write_fds);
+        ares_process(*channelptr, &read_fds, &write_fds);
     }
 }
 
@@ -175,19 +175,19 @@ dnstun_resolver_ret_t dnstun_resolver_query(char *type, char *name, char *answer
         data.type = type;
         data.name = name;
 
-        ares_query(channel, name, ns_c_in, code, on_dns_response, &data);
+        ares_query(*channelptr, name, ns_c_in, code, on_dns_response, &data);
         wait_for_response();
     }
     else
     {
-        printf("This request has the wrong type.\n");
+        syslog(LOG_INFO, "The %s %s request has the wrong type.", type, name);
         strcpy(answer, "1\0");
     }
 
     return DNSTUN_RESOLVER_RET_OK;
 }
 
-dnstun_resolver_ret_t dnstun_resolver_deinit(void)
+dnstun_resolver_ret_t dnstun_resolver_deinit(ares_channel channel)
 {
     ares_destroy(channel);
     ares_library_cleanup();
@@ -195,7 +195,7 @@ dnstun_resolver_ret_t dnstun_resolver_deinit(void)
     return DNSTUN_RESOLVER_RET_OK;
 }
 
-dnstun_resolver_ret_t dnstun_resolver_init(void)
+dnstun_resolver_ret_t dnstun_resolver_init(ares_channel *channel)
 {
     int status;
     struct ares_options options;
@@ -204,16 +204,18 @@ dnstun_resolver_ret_t dnstun_resolver_init(void)
     status = ares_library_init(ARES_LIB_INIT_ALL);
     if(status != ARES_SUCCESS)
     {
-        printf("ares_library_init: %s\n", ares_strerror(status));
+        syslog(LOG_ERR, "ares_library_init: %s", ares_strerror(status));
         return DNSTUN_RESOLVER_RET_FAIL;
     }
 
-    status = ares_init_options(&channel, &options, optmask);
+    status = ares_init_options(channel, &options, optmask);
     if(status != ARES_SUCCESS)
     {
-        printf("ares_init_options: %s\n", ares_strerror(status));
+        syslog(LOG_ERR, "ares_init_options: %s", ares_strerror(status));
         return DNSTUN_RESOLVER_RET_FAIL;
     }
+
+    channelptr = channel;
 
     return DNSTUN_RESOLVER_RET_OK;
 }

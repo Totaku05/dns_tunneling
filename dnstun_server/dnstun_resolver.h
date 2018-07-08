@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include <ares.h>
+
 #define MAX_COUNT_OF_ANSWERS 100
 
 typedef enum
@@ -17,21 +19,23 @@ typedef enum
  * dnstun_resolver_init
 
  * @name                     dnstun_resolver_init
+ * @param   channel          a pointer to a name service channel
  * @return  DNSTUN_RESOLVER_RET_OK if success
  *
  * Initializes c-ares libs and options
  */
-dnstun_resolver_ret_t dnstun_resolver_init(void);
+dnstun_resolver_ret_t dnstun_resolver_init(ares_channel *channel);
 
 /*****************************************************************************
  * dnstun_resolver_deinit
 
  * @name                     dnstun_resolver_deinit
+ * @param   channel          a name service channel
  * @return  DNSTUN_RESOLVER_RET_OK if success
  *
  * Deinitializes c-ares libs and options
  */
-dnstun_resolver_ret_t dnstun_resolver_deinit(void);
+dnstun_resolver_ret_t dnstun_resolver_deinit(ares_channel channel);
 
 /*****************************************************************************
  * dnstun_resolver_query

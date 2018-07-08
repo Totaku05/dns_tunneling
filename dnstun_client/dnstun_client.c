@@ -4,6 +4,11 @@
 #include <curl/curl.h>
 #include "dnstun_client.h"
 
+struct dnstun_client_s
+{
+    CURL *curl;
+};
+
 static size_t on_response(void *ptr, size_t size, size_t nmemb, void *stream)
 {
     char *data = (char*)ptr;
@@ -41,18 +46,33 @@ static size_t on_response(void *ptr, size_t size, size_t nmemb, void *stream)
     return written;
 }
 
-dnstun_client_ret_t dnstun_client_send_request(char *url, FILE *stream)
+dnstun_client_ret_t dnstun_client_send_request(dnstun_client_t *dnstun_client, char *url)
 {
-    CURL *curl = curl_easy_init();
+    curl_easy_setopt(dnstun_client->curl, CURLOPT_URL, url);
+    curl_easy_perform(dnstun_client->curl);
 
-    if(!curl)
+    return DNSTUN_CLIENT_RET_OK;
+}
+
+dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *stream)
+{
+    *dnstun_client = (dnstun_client_t*)malloc(sizeof(dnstun_client_t));
+
+    (*dnstun_client)->curl = curl_easy_init();
+
+    if(!(*dnstun_client)->curl)
         return DNSTUN_CLIENT_RET_FAIL;
 
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_response);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, stream);
-    curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
+    curl_easy_setopt((*dnstun_client)->curl, CURLOPT_WRITEFUNCTION, on_response);
+    curl_easy_setopt((*dnstun_client)->curl, CURLOPT_WRITEDATA, stream);
+
+    return DNSTUN_CLIENT_RET_OK;
+}
+
+dnstun_client_ret_t dnstun_client_deinit(dnstun_client_t *dnstun_client)
+{
+    curl_easy_cleanup(dnstun_client->curl);
+    free(dnstun_client);
 
     return DNSTUN_CLIENT_RET_OK;
 }
