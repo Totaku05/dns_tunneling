@@ -3,9 +3,9 @@ For the dnstun_client application, you need to install the curl library.
 To build the dnstun_client application, you need to go to the dnstun_client folder and execute the make command.
 You can use the executable file named as dnstun_client with the following options:
 [-h/--help - Show the possible options]
-[-s/--server <address> - Enter the server address (the default address is http://localhost:8000/)]
-[-src/--source_file <file name> - Enter the source file name (the default name is test)]
-[-dst/--destination_file <file name> - Enter the destination file name (the default output is to the console)]
+[-a/--address <address> - Enter the server address (the default address is http://localhost:8000/)]
+[-s/--source_file <file name> - Enter the source file name (the default name is test)]
+[-d/--destination_file <file name> - Enter the destination file name (the default output is to the console)]
 
 C DNSTUN_SERVER APPLICATION
 For the dnstun_server application, you need to install the c-ares library.
