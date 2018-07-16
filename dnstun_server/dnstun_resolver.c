@@ -4,16 +4,40 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <syslog.h>
+#include <ares_dns.h>
 #include "dnstun_resolver.h"
 
-static ares_channel *channelptr;
+#define TTL_FOR_WRONG_REQUEST 3600
 
 typedef struct data_for_dns_request_s
 {
     char *answer;
     char *type;
     char *name;
+    int  *ttl;
 } data_for_dns_request_t;
+
+static int get_ttl(unsigned char *abuf, int alen)
+{
+    char *aptr;
+    char* name;
+    long len;
+    unsigned int qdcount;
+    int counter = 0;
+
+    aptr = abuf + HFIXEDSZ;
+    qdcount = DNS_HEADER_QDCOUNT(abuf);
+    for(;counter < qdcount + 1; counter++)
+    {
+        ares_expand_name(aptr, abuf, alen, &name, &len);
+        ares_free_string(name);
+        aptr += len;
+        aptr += QFIXEDSZ;
+    }
+    aptr -= QFIXEDSZ;
+
+    return DNS_RR_TTL(aptr);
+}
 
 static int get_code_by_type(char *type)
 {
@@ -29,7 +53,7 @@ static int get_code_by_type(char *type)
     return code;
 }
 
-static void parse_a(unsigned char *abuf, int alen, char* answer)
+static void parse_a(unsigned char *abuf, int alen, char* answer, int *ttl)
 {
     int i = 0;
     struct ares_addrttl info[MAX_COUNT_OF_ANSWERS];
@@ -42,11 +66,14 @@ static void parse_a(unsigned char *abuf, int alen, char* answer)
     if(status != ARES_SUCCESS){
         syslog(LOG_ERR, "Failed to lookup: %s", ares_strerror(status));
         strcpy(answer, "1\0");
+        *ttl = TTL_FOR_WRONG_REQUEST;
         return;
     }
 
     strcpy(answer, "0\n");
     answer += 2;
+
+    *ttl = info[0].ttl;
 
     for(; i < count; i++)
     {
@@ -58,7 +85,7 @@ static void parse_a(unsigned char *abuf, int alen, char* answer)
     answer = 0;
 }
 
-static void parse_txt(unsigned char *abuf, int alen, char *answer)
+static void parse_txt(unsigned char *abuf, int alen, char *answer, int *ttl)
 {
     struct ares_txt_reply *txt_out = NULL, *tmp_txt;
     int status = 0;
@@ -69,6 +96,7 @@ static void parse_txt(unsigned char *abuf, int alen, char *answer)
     {
         syslog(LOG_ERR, "Failed to lookup: %s", ares_strerror(status));
         strcpy(answer, "1\0");
+        *ttl = TTL_FOR_WRONG_REQUEST;
         return;
     }
 
@@ -76,6 +104,8 @@ static void parse_txt(unsigned char *abuf, int alen, char *answer)
 
     strcpy(answer, "0\n");
     answer += 2;
+
+    *ttl = get_ttl(abuf, alen);
 
     for(; tmp_txt; tmp_txt = tmp_txt->next)
     {
@@ -88,7 +118,7 @@ static void parse_txt(unsigned char *abuf, int alen, char *answer)
     ares_free_data(txt_out);
 }
 
-static void parse_mx(unsigned char *abuf, int alen, char *answer)
+static void parse_mx(unsigned char *abuf, int alen, char *answer, int *ttl)
 {
     struct ares_mx_reply *mx_out = NULL, *tmp_mx;
     int status = 0;
@@ -99,6 +129,7 @@ static void parse_mx(unsigned char *abuf, int alen, char *answer)
     {
         syslog(LOG_ERR, "Failed to lookup: %s", ares_strerror(status));
         strcpy(answer, "1\0");
+        *ttl = TTL_FOR_WRONG_REQUEST;
         return;
     }
 
@@ -106,6 +137,8 @@ static void parse_mx(unsigned char *abuf, int alen, char *answer)
 
     strcpy(answer, "0\n");
     answer += 2;
+
+    *ttl = get_ttl(abuf, alen);
 
     for(; tmp_mx; tmp_mx = tmp_mx->next)
     {
@@ -126,24 +159,25 @@ static void on_dns_response(void *arg, int status, int timeouts, unsigned char *
     if(!abuf || status != ARES_SUCCESS){
         syslog(LOG_ERR, "The %s %s request wasn't successful: %s.", data->type, data->name, ares_strerror(status));
         strcpy(data->answer, "1\0");
+        *(data->ttl) = TTL_FOR_WRONG_REQUEST;
         return;
     }
 
     switch(code)
     {
         case ns_t_a: 
-            parse_a(abuf, alen, data->answer);
+            parse_a(abuf, alen, data->answer, data->ttl);
             break;
         case ns_t_txt:
-            parse_txt(abuf, alen, data->answer);
+            parse_txt(abuf, alen, data->answer, data->ttl);
             break;
         case ns_t_mx:
-            parse_mx(abuf, alen, data->answer);
+            parse_mx(abuf, alen, data->answer, data->ttl);
             break;
     }
 }
 
-static void wait_for_response(void)
+static void wait_for_response(ares_channel channel)
 {
     while(1)
     {
@@ -153,18 +187,18 @@ static void wait_for_response(void)
 
         FD_ZERO(&read_fds);
         FD_ZERO(&write_fds);
-        nfds = ares_fds(*channelptr, &read_fds, &write_fds);
+        nfds = ares_fds(channel, &read_fds, &write_fds);
 
         if(!nfds)
             break;
 
-        tvp = ares_timeout(*channelptr, NULL, &tv);
+        tvp = ares_timeout(channel, NULL, &tv);
         select(nfds, &read_fds, &write_fds, NULL, tvp);
-        ares_process(*channelptr, &read_fds, &write_fds);
+        ares_process(channel, &read_fds, &write_fds);
     }
 }
 
-dnstun_resolver_ret_t dnstun_resolver_query(char *type, char *name, char *answer)
+dnstun_resolver_ret_t dnstun_resolver_query(ares_channel channel, char *type, char *name, char *answer, int *ttl)
 {
     data_for_dns_request_t data;
     int code = get_code_by_type(type);
@@ -174,14 +208,16 @@ dnstun_resolver_ret_t dnstun_resolver_query(char *type, char *name, char *answer
         data.answer = answer;
         data.type = type;
         data.name = name;
+        data.ttl = ttl;
 
-        ares_query(*channelptr, name, ns_c_in, code, on_dns_response, &data);
-        wait_for_response();
+        ares_query(channel, name, ns_c_in, code, on_dns_response, &data);
+        wait_for_response(channel);
     }
     else
     {
         syslog(LOG_INFO, "The %s %s request has the wrong type.", type, name);
         strcpy(answer, "1\0");
+        *ttl = TTL_FOR_WRONG_REQUEST;
     }
 
     return DNSTUN_RESOLVER_RET_OK;
@@ -214,8 +250,6 @@ dnstun_resolver_ret_t dnstun_resolver_init(ares_channel *channel)
         syslog(LOG_ERR, "ares_init_options: %s", ares_strerror(status));
         return DNSTUN_RESOLVER_RET_FAIL;
     }
-
-    channelptr = channel;
 
     return DNSTUN_RESOLVER_RET_OK;
 }

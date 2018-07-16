@@ -1,9 +1,9 @@
 LIBS:=-lcares
-SRC:=main.c mongoose.c dnstun_resolver.c dnstun_server.c
+SRC:=main.c mongoose.c dnstun_resolver.c dnstun_cache.c dnstun_server.c
 TARGET:=dnstun_server
 
 all:
-	gcc -pthread $(SRC) $(LIBS) -o $(TARGET)
+	gcc -pthread -DMG_ENABLE_CALLBACK_USERDATA $(SRC) $(LIBS) -o $(TARGET)
 
 clean:
 	rm -f $(TARGET)

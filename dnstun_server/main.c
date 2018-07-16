@@ -23,6 +23,8 @@ static void s_print_usage(char *name_of_executable_file)
                     "You can enter the following levels of logging: debug, info, error]\n");
     fprintf(stderr, "[-n/--number_of_threads <number> - Enter the number of threads (the default number "
                     "is 10). The number of threads must be greater than 0]\n");
+    fprintf(stderr, "[-m/--max_number_of_items <number> - Enter the max number of items (the default"
+                    " number is 10). The max number of items must be greater than 0]\n");
 }
 
 int main(int argc, char *argv[])
@@ -34,9 +36,10 @@ int main(int argc, char *argv[])
     char *level = "info";
     int level_upto;
     int number_of_threads = 10;
+    int number_of_items = 10;
 
     int opt;
-    struct option options[5];
+    struct option options[6];
 
     options[0].name = "help";
     options[0].has_arg = no_argument;
@@ -58,9 +61,14 @@ int main(int argc, char *argv[])
     options[3].val = 'n';
     options[3].flag = NULL;
 
-    options[4].name = NULL;
+    options[4].name = "max_number_of_items";
+    options[4].has_arg = required_argument;
+    options[4].val = 'm';
+    options[4].flag = NULL;
 
-    while ((opt = getopt_long(argc, argv, "hp:l:n:", options, NULL)) != -1)
+    options[5].name = NULL;
+
+    while ((opt = getopt_long(argc, argv, "hp:l:n:m:", options, NULL)) != -1)
     {
         switch(opt)
         {
@@ -75,6 +83,9 @@ int main(int argc, char *argv[])
                 break;
             case 'n':
                 number_of_threads = atoi(optarg);
+                break;
+            case 'm':
+                number_of_items = atoi(optarg);
                 break;
             default:
                 return -1;
@@ -103,7 +114,13 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    status = dnstun_server_init(&dnstun_server, port, 10);
+    if(number_of_items < 1)
+    {
+        syslog(LOG_ERR, "The wrong max number of items - %d - is entered.", number_of_items);
+        return -1;
+    }
+
+    status = dnstun_server_init(&dnstun_server, port, number_of_threads, number_of_items);
     if(status != DNSTUN_SERVER_RET_OK)
         return -1;
 

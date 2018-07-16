@@ -15,6 +15,7 @@ You can use the executable file named as dnstun_server with the following option
 [-p/--port <port> - Enter the port (the default port is 8000)]
 [-l/--level <level> - Enter the level of logging (the default level is info). You can enter the following levels of logging: debug, info, error]
 [-n/--number_of_threads <number> - Enter the number of threads (the default number is 10). The number of threads must be greater than 0]
+[-m/--max_number_of_items <number> - Enter the max number of items (the default number is 10). The max number of items must be greater than 0]
 
 PYTHON DNSTUN_SERVER APPLICATION
 For the dnstun_server application, you need to install the dnspython module.
