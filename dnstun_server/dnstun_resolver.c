@@ -5,6 +5,7 @@
 #include <arpa/nameser.h>
 #include <syslog.h>
 #include <ares_dns.h>
+#include "dnstun_defs.h"
 #include "dnstun_resolver.h"
 
 #define TTL_FOR_WRONG_REQUEST 3600
@@ -56,8 +57,8 @@ static int get_code_by_type(char *type)
 static void parse_a(unsigned char *abuf, int alen, char* answer, int *ttl)
 {
     int i = 0;
-    struct ares_addrttl info[MAX_COUNT_OF_ANSWERS];
-    int count = MAX_COUNT_OF_ANSWERS;
+    struct ares_addrttl info[MAX_COUNT_OF_ADDRESSES_IN_RESPONSE];
+    int count = MAX_COUNT_OF_ADDRESSES_IN_RESPONSE;
     int status = 0;
     char *address;
 

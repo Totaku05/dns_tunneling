@@ -85,12 +85,7 @@ int main(int argc, char *argv[])
 
     status = dnstun_client_init(&dnstun_client, dst);
     if(status != DNSTUN_CLIENT_RET_OK)
-    {
-        fclose(src);
-        if(dst_name)
-            fclose(dst);
-        return status;
-    }
+        goto closing_files;
 
     while (fgets(line, sizeof(line), src)) {
         sscanf(line, "%[A-Z], %s", type, name);
@@ -100,6 +95,8 @@ int main(int argc, char *argv[])
     }
 
     dnstun_client_deinit(dnstun_client);
+
+closing_files:
     fclose(src);
     if(dst_name)
         fclose(dst);

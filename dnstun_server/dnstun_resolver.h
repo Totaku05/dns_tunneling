@@ -7,8 +7,6 @@ extern "C" {
 
 #include <ares.h>
 
-#define MAX_COUNT_OF_ANSWERS 100
-
 typedef enum
 {
     DNSTUN_RESOLVER_RET_OK   = 0, /* Success */

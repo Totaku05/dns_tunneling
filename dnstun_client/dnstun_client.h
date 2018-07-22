@@ -5,7 +5,10 @@
 extern "C" {
 #endif
 
-#define DNSTUN_CLIENT_VERSION 3.0
+#define DNSTUN_CLIENT_VERSION 4.0
+
+#define CLIENT_EXPORT __attribute__ ((visibility("default")))
+#define CLIENT_LOCAL __attribute__ ((visibility("hidden")))
 
 typedef enum
 {
@@ -25,7 +28,7 @@ typedef struct dnstun_client_s dnstun_client_t;
  *
  * Initializes client
  */
-dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *stream);
+CLIENT_EXPORT dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *stream);
 
 /*****************************************************************************
  * dnstun_client_deinit
@@ -36,7 +39,7 @@ dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *st
  *
  * Deinitializes client
  */
-dnstun_client_ret_t dnstun_client_deinit(dnstun_client_t *dnstun_client);
+CLIENT_EXPORT dnstun_client_ret_t dnstun_client_deinit(dnstun_client_t *dnstun_client);
 
 /*****************************************************************************
  * dnstun_client_send_request
@@ -50,7 +53,7 @@ dnstun_client_ret_t dnstun_client_deinit(dnstun_client_t *dnstun_client);
  * Sends a GET request. We assume that url has follow format: 
  * http://somehost:someport/?type=sometype&name=somename
  */
-dnstun_client_ret_t dnstun_client_send_request(dnstun_client_t *dnstun_client, char *url);
+CLIENT_EXPORT dnstun_client_ret_t dnstun_client_send_request(dnstun_client_t *dnstun_client, char *url);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

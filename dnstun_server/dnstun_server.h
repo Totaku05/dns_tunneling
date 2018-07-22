@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#define DNSTUN_SERVER_VERSION 3.0
+#define DNSTUN_SERVER_VERSION 4.0
 
 typedef enum
 {

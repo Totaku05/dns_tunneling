@@ -1,3 +1,6 @@
 #Executable files
 dnstun_server/dnstun_server
 dnstun_client/dnstun_client
+
+#Shared library
+dnstun_client/libdnstun_client.so

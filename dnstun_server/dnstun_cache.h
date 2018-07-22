@@ -5,11 +5,6 @@
 extern "C" {
 #endif
 
-#define MAX_LENGTH_OF_TYPE 10
-#define MAX_LENGTH_OF_NAME 100
-#define MAX_LENGTH_OF_ANSWER 100
-#define MAX_LENGTH_OF_HEADER 6
-
 typedef enum
 {
     DNSTUN_CACHE_RET_OK      = 0, /* Success */

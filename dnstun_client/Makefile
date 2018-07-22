@@ -1,9 +1,11 @@
 LIBS:=-lcurl
-SRC:=main.c dnstun_client.c
+SHARED_LIB:=libdnstun_client.so
+SRC:=main.c
 TARGET:=dnstun_client
 
 all:
-	gcc $(SRC) $(LIBS) -o $(TARGET)
+	gcc -Wall -fpic dnstun_client.c -shared $(LIBS) -o $(SHARED_LIB)
+	gcc -Wl,-rpath=. $(SRC) -o $(TARGET) $(SHARED_LIB)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(SHARED_LIB)

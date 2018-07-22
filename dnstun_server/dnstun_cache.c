@@ -3,11 +3,12 @@
 #include <string.h>
 #include <pthread.h>
 #include <time.h>
+#include "dnstun_defs.h"
 #include "dnstun_cache.h"
 
 typedef struct dnstun_cache_data_s
 {
-    char result_of_query[MAX_LENGTH_OF_TYPE + MAX_LENGTH_OF_NAME + MAX_LENGTH_OF_HEADER + 100 * MAX_LENGTH_OF_ANSWER];
+    char result_of_query[MAX_LENGTH_OF_ANSWER];
     char type[MAX_LENGTH_OF_TYPE];
     char name[MAX_LENGTH_OF_NAME];
     struct timespec timeout;
@@ -85,7 +86,7 @@ dnstun_cache_ret_t dnstun_cache_find(dnstun_cache_t *dnstun_cache, char *type, c
 
 dnstun_cache_ret_t dnstun_cache_insert(dnstun_cache_t *dnstun_cache, char *type, char *name, char *result, int ttl)
 {
-    char result_in_cache[MAX_LENGTH_OF_TYPE + MAX_LENGTH_OF_NAME + MAX_LENGTH_OF_HEADER + 100 * MAX_LENGTH_OF_ANSWER];
+    dnstun_cache_ret_t status = DNSTUN_CACHE_RET_OK;
     dnstun_cache_data_t *tmp_item;
     struct timespec timeout;
 
@@ -105,6 +106,13 @@ dnstun_cache_ret_t dnstun_cache_insert(dnstun_cache_t *dnstun_cache, char *type,
     }
 
     tmp_item = (dnstun_cache_data_t*)malloc(sizeof(dnstun_cache_data_t));
+
+    if(tmp_item == NULL)
+    {
+        status = DNSTUN_CACHE_RET_FAIL;
+        goto malloc_error;
+    }
+
     strcpy(tmp_item->type, type);
     strcpy(tmp_item->name, name);
     strcpy(tmp_item->result_of_query, result);
@@ -119,13 +127,18 @@ dnstun_cache_ret_t dnstun_cache_insert(dnstun_cache_t *dnstun_cache, char *type,
     dnstun_cache->tail = tmp_item;
     dnstun_cache->current_number_of_items++;
 
+malloc_error:
     pthread_mutex_unlock(&(dnstun_cache->mutex));
-    return DNSTUN_CACHE_RET_OK;
+    return status;
 }
 
 dnstun_cache_ret_t dnstun_cache_init(dnstun_cache_t **dnstun_cache, int num_of_items)
 {
     *dnstun_cache = (dnstun_cache_t*)malloc(sizeof(dnstun_cache_t));
+
+    if(*dnstun_cache == NULL)
+        return DNSTUN_CACHE_RET_FAIL;
+
     (*dnstun_cache)->head = NULL;
     (*dnstun_cache)->tail = NULL;
     (*dnstun_cache)->mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;

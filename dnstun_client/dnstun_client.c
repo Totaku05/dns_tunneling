@@ -4,6 +4,8 @@
 #include <curl/curl.h>
 #include "dnstun_client.h"
 
+#define MAX_LENGTH_OF_RESPONSE 700
+
 struct dnstun_client_s
 {
     CURL *curl;
@@ -12,7 +14,7 @@ struct dnstun_client_s
 static size_t on_response(void *ptr, size_t size, size_t nmemb, void *stream)
 {
     char *data = (char*)ptr;
-    char response[220];
+    char response[MAX_LENGTH_OF_RESPONSE];
     char *result_of_request;
     size_t written = 0;
     int length = 0;
@@ -33,7 +35,7 @@ static size_t on_response(void *ptr, size_t size, size_t nmemb, void *stream)
     strcpy(result_of_request, ", ");
     result_of_request += 2;
 
-    while(current_line = next_line ? next_line + 1 : NULL)
+    while((current_line = next_line ? next_line + 1 : NULL))
     {
         next_line = strchr(current_line, '\n');
         if(!next_line) 
@@ -46,7 +48,7 @@ static size_t on_response(void *ptr, size_t size, size_t nmemb, void *stream)
     return written;
 }
 
-dnstun_client_ret_t dnstun_client_send_request(dnstun_client_t *dnstun_client, char *url)
+CLIENT_EXPORT dnstun_client_ret_t dnstun_client_send_request(dnstun_client_t *dnstun_client, char *url)
 {
     curl_easy_setopt(dnstun_client->curl, CURLOPT_URL, url);
     curl_easy_perform(dnstun_client->curl);
@@ -54,9 +56,12 @@ dnstun_client_ret_t dnstun_client_send_request(dnstun_client_t *dnstun_client, c
     return DNSTUN_CLIENT_RET_OK;
 }
 
-dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *stream)
+CLIENT_EXPORT dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *stream)
 {
     *dnstun_client = (dnstun_client_t*)malloc(sizeof(dnstun_client_t));
+
+    if(*dnstun_client == NULL)
+        return DNSTUN_CLIENT_RET_FAIL;
 
     (*dnstun_client)->curl = curl_easy_init();
 
@@ -69,7 +74,7 @@ dnstun_client_ret_t dnstun_client_init(dnstun_client_t **dnstun_client, FILE *st
     return DNSTUN_CLIENT_RET_OK;
 }
 
-dnstun_client_ret_t dnstun_client_deinit(dnstun_client_t *dnstun_client)
+CLIENT_EXPORT dnstun_client_ret_t dnstun_client_deinit(dnstun_client_t *dnstun_client)
 {
     curl_easy_cleanup(dnstun_client->curl);
     free(dnstun_client);
